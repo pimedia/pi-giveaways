@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">PI Giveaways plugin logo</title>
+  <desc id="desc">The PI Giveaways header mark using the PI Media symbol.</desc>
+  <defs><linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5E31AD"/><stop offset=".5" stop-color="#8954CA"/><stop offset="1" stop-color="#C59AE6"/></linearGradient></defs>
+  <rect width="64" height="64" rx="12" fill="url(#accent)"/>
+  <path d="M12 22h40v31H12V22Zm5 7v18h30V29H17ZM9 14h46v15H9V14Zm19-7h8v46h-8V7Z" fill="#fff" opacity=".97"/>
+  <path d="M12 14h40v7H12z" fill="#D8C5EA" opacity=".8"/>
+</svg>
