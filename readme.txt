@@ -3,7 +3,7 @@ Contributors: parorrey
 Donate link: https://www.parorrey.com/donate/
 Tags: giveaway, prize, entries, promotion
 Requires at least: 6.2
-Tested up to: 7.1
+Tested up to: 7.1.5
 Requires PHP: 7.4
 Stable tag: 1.0.7
 License: GPLv2 or later

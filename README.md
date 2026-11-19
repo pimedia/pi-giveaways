@@ -118,7 +118,7 @@ Replace `123` with the giveaway post ID. The listing shortcode uses the layout a
 
 | | Minimum | Tested up to |
 |---|---:|---:|
-| WordPress | 6.2 | 7.1 |
+| WordPress | 6.2 | 7.1.5 |
 | PHP | 7.4 | 8.x |
 
 ---
