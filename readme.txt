@@ -5,7 +5,7 @@ Tags: giveaway, prize, entries, promotion
 Requires at least: 6.2
 Tested up to: 7.1.5
 Requires PHP: 7.4
-Stable tag: 1.0.7
+Stable tag: 1.0.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,8 @@ Every feature included in this WordPress.org plugin is fully available without a
 * Reusable default forms with per-giveaway field controls.
 * Giveaway listings with current and past sections.
 * Entry moderation, CSV export, and unlimited manual winner records.
+* Winner reviews, Media Library photo selection, and YouTube, Instagram, or Facebook video/reel URLs.
+* Historical giveaways with silent entry-linked or manually named winner records and separate opt-in public display.
 * Entry confirmation and administrator notification emails through `wp_mail()`.
 * Honeypot protection and optional Google reCAPTCHA v3.
 * A built-in reCAPTCHA configuration test with score reporting and frontend error recovery.
@@ -98,6 +100,29 @@ When enabled, the visitor's browser loads the Google reCAPTCHA script and reques
 * [Google Terms of Service](https://policies.google.com/terms)
 
 == Changelog ==
+
+= 1.0.13 =
+* Add a Select or upload photos button for each winner using the WordPress Media Library.
+* Add a Video or reel URLs field alongside each winner’s photos and review, supporting YouTube, Instagram, and Facebook.
+* Add optional Historical giveaway mode to record past winners from existing entries or by public display name when no entry is on file.
+* Support reviews and photos for both entry-linked and manually recorded historical winners.
+* Record historical winners silently without triggering winner-award notifications.
+* Keep publication of winner details on the giveaway page controlled by a separate checkbox.
+
+= 1.0.12 =
+* Select or upload multiple winner photos using the WordPress Media Library.
+
+= 1.0.11 =
+* Accept pasted HTML image tags in winner photo fields and preserve URL encoding.
+
+= 1.0.10 =
+* Display historical winner reviews and photos when the optional public name is blank.
+
+= 1.0.9 =
+* Add optional historical giveaway mode for silently recording and publishing past winners.
+
+= 1.0.8 =
+* Add optional public winner names, reviews, and photos on closed giveaway pages.
 
 = 1.0.7 =
 * Adds extension hooks so eligibility-aware add-ons can replace a premature Award winner link with their confirmation workflow.

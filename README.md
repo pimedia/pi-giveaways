@@ -125,6 +125,15 @@ Replace `123` with the giveaway post ID. The listing shortcode uses the layout a
 
 ## Changelog
 
+### 1.0.13 — 2026-11-28
+
+- Select or upload photos for each winner through the WordPress Media Library.
+- Add YouTube, Instagram, and Facebook video or reel URLs alongside winner photos and reviews.
+- Enable Historical giveaway mode to record past winners from existing entries or by public display name when no entry is on file.
+- Add reviews and photos for both kinds of historical winner records.
+- Record historical winners without triggering winner-award notifications; public display remains a separate checkbox.
+- Tested up to WordPress 7.1.5.
+
 ### 1.0.7 — 2026-10-23
 
 - Added extension hooks for eligibility-aware winner confirmation workflows.

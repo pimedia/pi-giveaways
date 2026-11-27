@@ -176,12 +176,48 @@ final class PIGI_Repository {
 		return $deleted;
 	}
 
+	public static function winner_video_urls( $input ) {
+		$urls = array();
+		foreach ( preg_split( '/\R/', is_string( $input ) ? $input : '' ) as $line ) {
+			$url = esc_url_raw( trim( $line ), array( 'https' ) );
+			if ( ! preg_match( '~^https://(?:www\.|m\.)?(?:youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.watch)/[^\s]+$~i', $url ) ) {
+				continue;
+			}
+			$urls[] = $url;
+		}
+		return array_values( array_unique( $urls ) );
+	}
+
+	public static function is_historical( $giveaway_id ) {
+		$publication = (array) get_post_meta( $giveaway_id, '_pigiveaways_winner_publication', true );
+		$details     = (array) get_post_meta( $giveaway_id, '_pigiveaways_details', true );
+		return ! empty( $publication['historical'] ) && in_array( $details['status'] ?? '', array( 'ended', 'awarded' ), true );
+	}
+
+	public static function publication_winner_slots( $giveaway_id ) {
+		$awards = array_values( array_filter( self::active_awards( $giveaway_id ), static function ( $award ) {
+			return 'winner' === $award->award_type;
+		} ) );
+		if ( self::is_historical( $giveaway_id ) ) {
+			$remaining = self::winner_limit( $giveaway_id ) - count( $awards );
+			for ( $slot = 1; $slot <= $remaining; ++$slot ) {
+				$awards[] = (object) array(
+					'id' => 'historical-' . $slot,
+					'first_name' => '',
+					'last_name' => '',
+				);
+			}
+		}
+		return $awards;
+	}
+
 	public static function award( $entry_id, $note = '' ) {
 		global $wpdb;
 		$entry = self::entry( $entry_id );
 		if ( ! $entry || 'valid' !== $entry->status ) {
 			return new WP_Error( 'invalid_entry', __( 'Only a valid entry can receive an award.', 'pi-giveaways' ) );
 		}
+		$historical = self::is_historical( $entry->giveaway_id );
 		$permission = apply_filters( 'pigiveaways_can_award_entry', true, $entry );
 		if ( is_wp_error( $permission ) ) {
 			return $permission;
@@ -215,7 +251,9 @@ final class PIGI_Repository {
 			return new WP_Error( 'award_failed', __( 'The winner award could not be saved.', 'pi-giveaways' ) );
 		}
 		$award_id = (int) $wpdb->insert_id;
-		do_action( 'pigiveaways_winner_awarded', $award_id, $entry );
+		if ( ! $historical ) {
+			do_action( 'pigiveaways_winner_awarded', $award_id, $entry );
+		}
 		return $award_id;
 	}
 

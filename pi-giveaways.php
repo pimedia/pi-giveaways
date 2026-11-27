@@ -3,7 +3,7 @@
  * Plugin Name: PI Giveaways
  * Plugin URI: https://wordpress.org/plugins/pi-giveaways/
  * Description: Create giveaways, collect entries, and manually award winners through a focused, privacy-aware workflow.
- * Version: 1.0.7
+ * Version: 1.0.13
  * Author: Ali Qureshi
  * Author URI: https://www.parorrey.com/
  * Text Domain: pi-giveaways
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'PIGIVEAWAYS_VERSION', '1.0.7' );
+define( 'PIGIVEAWAYS_VERSION', '1.0.13' );
 define( 'PIGIVEAWAYS_FILE', __FILE__ );
 define( 'PIGIVEAWAYS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIGIVEAWAYS_URL', plugin_dir_url( __FILE__ ) );

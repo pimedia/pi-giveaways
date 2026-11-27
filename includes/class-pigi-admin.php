@@ -284,6 +284,10 @@ final class PIGI_Admin {
 		wp_enqueue_style( 'pigiveaways-admin', PIGIVEAWAYS_URL . 'assets/admin.css', array(), PIGIVEAWAYS_VERSION );
 		wp_enqueue_style( 'pigiveaways-admin-preview', PIGIVEAWAYS_URL . 'assets/admin-preview.css', array( 'pigiveaways-admin' ), PIGIVEAWAYS_VERSION );
 		wp_enqueue_script( 'pigiveaways-admin', PIGIVEAWAYS_URL . 'assets/admin.js', array(), PIGIVEAWAYS_VERSION, true );
+		if ( $screen && 'pigiveaways_giveaway' === $screen->post_type && 'post' === $screen->base && current_user_can( 'upload_files' ) ) {
+			wp_enqueue_media();
+			wp_enqueue_script( 'pigiveaways-winner-photos', PIGIVEAWAYS_URL . 'assets/winner-photos.js', array( 'media-editor' ), PIGIVEAWAYS_VERSION, true );
+		}
 		if ( false !== strpos( $hook, 'pigiveaways' ) ) {
 			$settings = wp_parse_args( get_option( $this->option, array() ), $this->defaults() );
 			$site_key = sanitize_text_field( $settings['recaptcha_site_key'] ?? '' );
@@ -350,6 +354,94 @@ final class PIGI_Admin {
 	public function meta_boxes() {
 		add_meta_box( 'pig-details', __( 'Giveaway Details', 'pi-giveaways' ), array( $this, 'details_box' ), 'pigiveaways_giveaway', 'normal', 'high' );
 		add_meta_box( 'pig-form-builder', __( 'Giveaway Entry Form', 'pi-giveaways' ), array( $this, 'form_builder_box' ), 'pigiveaways_giveaway', 'normal', 'default' );
+		add_meta_box( 'pig-winner-publication', __( 'Public Winners and Reviews', 'pi-giveaways' ), array( $this, 'winner_publication_box' ), 'pigiveaways_giveaway', 'normal', 'default' );
+	}
+
+	public function winner_publication_box( $post ) {
+		$publication = (array) get_post_meta( $post->ID, '_pigiveaways_winner_publication', true );
+		echo '<input type="hidden" name="pig_winner_publication_present" value="1">';
+		echo '<p><label><input type="checkbox" name="pig_historical_giveaway" value="1" ' . checked( ! empty( $publication['historical'] ), true, false ) . '> ' . esc_html__( 'Historical giveaway: record past winners silently', 'pi-giveaways' ) . '</label></p>';
+		echo '<p>' . esc_html__( 'Set the giveaway status to Ended or Awarded before recording historical winners.', 'pi-giveaways' ) . '</p>';
+		echo '<p><label><input type="checkbox" name="pig_publish_winners" value="1" ' . checked( ! empty( $publication['enabled'] ), true, false ) . '> ' . esc_html__( 'Automatically display recorded winners on the closed giveaway page', 'pi-giveaways' ) . '</label></p>';
+		echo '<p>' . esc_html__( 'This setting publishes winner names, reviews, and photos on Ended and Awarded giveaways. Enable it only with the winners’ permission. Paste image URLs, one per line, or paste HTML image tags.', 'pi-giveaways' ) . '</p>';
+		foreach ( PIGI_Repository::publication_winner_slots( $post->ID ) as $award ) {
+			$row = $publication['winners'][ $award->id ] ?? array();
+			$key = 'pig_public_winner[' . $award->id . ']';
+			$label = trim( $award->first_name . ' ' . $award->last_name );
+			echo '<fieldset><legend><strong>' . esc_html( $label ?: __( 'Historical winner', 'pi-giveaways' ) ) . '</strong></legend>';
+			echo '<p><label>' . esc_html__( 'Public display name (optional)', 'pi-giveaways' ) . '<br><input class="regular-text" name="' . esc_attr( $key . '[name]' ) . '" value="' . esc_attr( $row['name'] ?? '' ) . '"></label></p>';
+			echo '<p><label>' . esc_html__( 'Winner review', 'pi-giveaways' ) . '<br><textarea class="large-text" rows="4" name="' . esc_attr( $key . '[review]' ) . '">' . esc_textarea( $row['review'] ?? '' ) . '</textarea></label></p>';
+			echo '<div data-pig-winner-photos>';
+			if ( current_user_can( 'upload_files' ) ) {
+				echo '<p><button type="button" class="button" data-pig-choose-photos data-title="' . esc_attr__( 'Select or upload winner photos', 'pi-giveaways' ) . '" data-confirm="' . esc_attr__( 'Add photos', 'pi-giveaways' ) . '">' . esc_html__( 'Select or upload photos', 'pi-giveaways' ) . '</button></p>';
+			}
+			echo '<p><label>' . esc_html__( 'Photo URLs (remove a line to remove a photo)', 'pi-giveaways' ) . '<br><textarea class="large-text" rows="3" name="' . esc_attr( $key . '[photos]' ) . '">' . esc_textarea( implode( "\n", $row['photos'] ?? array() ) ) . '</textarea></label></p></div>';
+			echo '<p><label>' . esc_html__( 'Video or reel URLs (YouTube, Instagram or Facebook, one per line)', 'pi-giveaways' ) . '<br><textarea class="large-text" rows="3" name="' . esc_attr( $key . '[videos]' ) . '">' . esc_textarea( implode( "\n", $row['videos'] ?? array() ) ) . '</textarea></label></p></fieldset>';
+		}
+	}
+
+	private function save_winner_publication( $post_id ) {
+		if ( ! isset( $_POST['pig_winner_publication_present'] ) ) {
+			return;
+		}
+		$submitted = (array) wp_unslash( $_POST['pig_public_winner'] ?? array() );
+		$previous  = (array) get_post_meta( $post_id, '_pigiveaways_winner_publication', true );
+		$winners   = (array) ( $previous['winners'] ?? array() );
+		foreach ( PIGI_Repository::publication_winner_slots( $post_id ) as $award ) {
+			$row = $submitted[ $award->id ] ?? null;
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$winners[ $award->id ] = array(
+				'name'   => sanitize_text_field( $row['name'] ?? '' ),
+				'review' => sanitize_textarea_field( $row['review'] ?? '' ),
+				'photos' => $this->parse_winner_photos( $row['photos'] ?? '' ),
+				'videos' => PIGI_Repository::winner_video_urls( $row['videos'] ?? '' ),
+			);
+		}
+		update_post_meta( $post_id, '_pigiveaways_winner_publication', wp_slash( array(
+			'enabled' => isset( $_POST['pig_publish_winners'] ),
+			'historical' => isset( $_POST['pig_historical_giveaway'] ),
+			'winners' => $winners,
+		) ) );
+	}
+
+	private function parse_winner_photos( $input ) {
+		if ( ! is_string( $input ) ) {
+			return array();
+		}
+
+		$candidates = array();
+		$tags = new WP_HTML_Tag_Processor( $input );
+		while ( $tags->next_tag( 'IMG' ) ) {
+			$src = $tags->get_attribute( 'src' );
+			if ( is_string( $src ) ) {
+				$candidates[] = $src;
+			}
+		}
+		foreach ( preg_split( '/\R/', $input ) as $line ) {
+			if ( preg_match( '~^(https?://|//|/)~i', trim( $line ) ) && false === strpos( $line, '<' ) ) {
+				$candidates[] = $line;
+			}
+		}
+
+		$photos = array();
+		foreach ( $candidates as $candidate ) {
+			$url = trim( $candidate );
+			if ( 0 === strpos( $url, '//' ) ) {
+				$url = 'https:' . $url;
+			} elseif ( 0 === strpos( $url, '/' ) ) {
+				$url = home_url( $url );
+			}
+			if ( ! preg_match( '~^https?://~i', $url ) ) {
+				continue;
+			}
+			$url = esc_url_raw( $url, array( 'http', 'https' ) );
+			if ( wp_parse_url( $url, PHP_URL_HOST ) ) {
+				$photos[] = $url;
+			}
+		}
+		return array_values( array_unique( $photos ) );
 	}
 
 	public function details_box( $post ) {
@@ -521,6 +613,7 @@ final class PIGI_Admin {
 		}
 		update_post_meta( $post_id, '_pigiveaways_form_fields', $stored_fields );
 		update_post_meta( $post_id, '_pigiveaways_form_mode', $mode );
+		$this->save_winner_publication( $post_id );
 	}
 
 	private function brand_header() {

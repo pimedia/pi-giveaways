@@ -240,12 +240,16 @@ final class PIGI_Frontend {
 		if ( $d['event_url'] ) {
 			echo '<p class="pig-related-event"><a href="' . esc_url( $d['event_url'] ) . '">' . esc_html__( 'View related event', 'pi-giveaways' ) . ' →</a></p>';
 		}
+		$winners = '';
+		if ( 'publish' === $post->post_status && ! post_password_required( $post ) && in_array( $state, array( 'ended', 'awarded' ), true ) ) {
+			$winners = $this->render_public_winners( $id );
+		}
 		if ( 'active' === $state ) {
 			$this->form( $id, $d, $settings );
 		} elseif ( 'upcoming' === $state ) {
 			echo '<p>' . esc_html__( 'This giveaway is coming soon.', 'pi-giveaways' ) . '</p>';
 		} elseif ( 'ended' === $state ) {
-			echo '<p>' . esc_html__( 'Entries are closed. Any award will be assigned manually by the promoter.', 'pi-giveaways' ) . '</p>';
+			echo '<p>' . esc_html( $winners ? __( 'Entries are closed.', 'pi-giveaways' ) : __( 'Entries are closed. Any award will be assigned manually by the promoter.', 'pi-giveaways' ) ) . '</p>';
 		} elseif ( 'awarded' === $state ) {
 				$announcement = $d['announcement'] ? $d['announcement'] : __( 'The award has been announced.', 'pi-giveaways' );
 				echo '<div class="pig-announcement">' . wp_kses_post( wpautop( $announcement ) ) . '</div>';
@@ -254,8 +258,81 @@ final class PIGI_Frontend {
 		} else {
 			echo '<p>' . esc_html__( 'This giveaway is not accepting entries.', 'pi-giveaways' ) . '</p>';
 		}
+		// The winner section escapes its data when building the markup.
+		echo $winners; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '</div></section>';
 		return ob_get_clean();
+	}
+
+	private function render_public_winners( $id ) {
+		$publication = (array) get_post_meta( $id, '_pigiveaways_winner_publication', true );
+		if ( empty( $publication['enabled'] ) ) {
+			return '';
+		}
+
+		ob_start();
+		foreach ( PIGI_Repository::publication_winner_slots( $id ) as $award ) {
+			$row     = $publication['winners'][ $award->id ] ?? array();
+			$initial = preg_match( '/^\p{L}/u', trim( (string) $award->last_name ), $match ) ? $match[0] . '.' : '';
+			$name    = $row['name'] ?? '';
+			if ( '' === $name && empty( $row['review'] ) && empty( $row['photos'] ) && empty( $row['videos'] ) && 0 === strpos( (string) $award->id, 'historical-' ) ) {
+				continue;
+			}
+			if ( '' === $name ) {
+				$name = trim( $award->first_name . ' ' . $initial );
+			}
+			echo '<article class="pig-winner"><h3>' . esc_html( $name ?: __( 'Giveaway winner', 'pi-giveaways' ) ) . '</h3>';
+			if ( ! empty( $row['review'] ) ) {
+				echo '<div class="pig-winner-review">' . wp_kses_post( wpautop( esc_html( $row['review'] ) ) ) . '</div>';
+			}
+			foreach ( $row['photos'] ?? array() as $photo ) {
+				echo '<img class="pig-winner-photo" src="' . esc_url( $photo, array( 'http', 'https' ) ) . '" loading="lazy" alt="' . esc_attr__( 'Photo shared by a giveaway winner', 'pi-giveaways' ) . '">';
+			}
+			foreach ( $row['videos'] ?? array() as $video ) {
+				$this->render_winner_video( $id, $video );
+			}
+			echo '</article>';
+		}
+		$cards = ob_get_clean();
+		return $cards ? '<section class="pig-winners"><h2>' . esc_html__( 'Giveaway Winners', 'pi-giveaways' ) . '</h2>' . $cards . '</section>' : '';
+	}
+
+	private function render_winner_video( $post_id, $url ) {
+		if ( ! PIGI_Repository::winner_video_urls( $url ) ) {
+			return;
+		}
+		$host = strtolower( wp_parse_url( $url, PHP_URL_HOST ) );
+		$path = wp_parse_url( $url, PHP_URL_PATH );
+		$player = '';
+		if ( preg_match( '~^(?:www\.|m\.)?instagram\.com$~', $host ) && preg_match( '~^/(reel|p|tv)/([A-Za-z0-9_-]+)/?$~', $path, $match ) ) {
+			$player = 'https://www.instagram.com/' . $match[1] . '/' . $match[2] . '/embed/';
+		} elseif ( preg_match( '~^(?:(?:www\.|m\.)?facebook\.com|fb\.watch)$~', $host ) ) {
+			$player = add_query_arg( 'href', rawurlencode( $url ), 'https://www.facebook.com/plugins/video.php' );
+		}
+		if ( $player ) {
+			echo '<div class="pig-winner-video"><iframe src="' . esc_url( $player ) . '" title="' . esc_attr__( 'Winner video', 'pi-giveaways' ) . '" width="500" height="480" style="max-width:100%;border:0" loading="lazy" allowfullscreen></iframe>';
+			echo '<p><a href="' . esc_url( $url ) . '">' . esc_html__( 'Watch on the original platform', 'pi-giveaways' ) . '</a></p></div>';
+			return;
+		}
+		$embed_url = preg_replace( '~^https://(?:www\.|m\.)?youtube\.com/shorts/([a-zA-Z0-9_-]{11})(?:[/?#].*)?$~i', 'https://www.youtube.com/watch?v=$1', $url );
+		global $wp_embed;
+		$previous_post_id = $wp_embed->post_ID;
+		$previous_link    = $wp_embed->linkifunknown;
+		$wp_embed->post_ID = $post_id;
+		$wp_embed->linkifunknown = false;
+		try {
+			$embed = $wp_embed->shortcode( array( 'discover' => false ), $embed_url );
+		} finally {
+			$wp_embed->post_ID = $previous_post_id;
+			$wp_embed->linkifunknown = $previous_link;
+		}
+		echo '<div class="pig-winner-video">';
+		if ( $embed && $embed_url !== $embed && esc_html( $embed_url ) !== $embed ) {
+			echo $embed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress-generated oEmbed HTML.
+		} else {
+			echo '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Watch the winner’s video', 'pi-giveaways' ) . '</a>';
+		}
+		echo '</div>';
 	}
 
 	private function form( $id, $d, $settings ) {
